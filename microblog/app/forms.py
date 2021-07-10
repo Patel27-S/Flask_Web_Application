@@ -6,7 +6,7 @@ from app.models import User
 
 class LoginForm(FlaskForm):
     '''
-    The LoginForm Class is to define the Login page of the Web Application.
+    Provides the "Login" related fields, so a user can enter the data and login.
     '''
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -15,6 +15,10 @@ class LoginForm(FlaskForm):
 
 
 class RegistrationForm(FlaskForm):
+    '''
+    Provides Registration related fields on the Web App, so a user can
+    register.
+    '''
     username = StringField('Username', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -33,6 +37,10 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Please use a different email address.')
 
 class EditProfileForm(FlaskForm):
+    '''
+    Provides the fields so that the editing of ones profile can be facilitated.
+    'about_me', 'username' can be edited.
+    '''
     username = StringField('Username', validators=[DataRequired()])
     about_me = TextAreaField('About me', validators=[Length(min=0, max=140)])
     submit = SubmitField('Submit')
@@ -46,3 +54,16 @@ class EditProfileForm(FlaskForm):
             user = User.query.filter_by(username=self.username.data).first()
             if user is not None:
                 raise ValidationError('Please use a different username.')
+
+class EmptyForm(FlaskForm):
+    '''
+    For 'following', 'unfollowing' purposes; the class provides empty forms for
+    users.
+    '''
+    submit = SubmitField('Submit')
+
+class PostForm(FlaskForm):
+    post = TextAreaField('Say Something', validators = [
+    DataRequired(), Length(min = 1, max = 150)
+    ])
+    submit = SubmitField('Submit')
