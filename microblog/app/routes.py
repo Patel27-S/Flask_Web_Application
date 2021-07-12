@@ -2,8 +2,9 @@ from flask import render_template, flash, redirect, url_for, request
 from flask_login import current_user, login_user, logout_user, login_required
 from flask import request
 from werkzeug.urls import url_parse
-from app.forms import LoginForm, RegistrationForm, EditProfileForm, EmptyForm, PostForm
+from app.forms import LoginForm, RegistrationForm, EditProfileForm, EmptyForm, PostForm, ResetPasswordRequestForm, ResetPasswordForm
 from app.models import User, Post
+from app.email import send_password_reset_email
 from datetime import datetime
 from app import app, db
 
@@ -11,7 +12,7 @@ from app import app, db
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/index', methods=['GET', 'POST'])
 @login_required
-def index():
+def index(): 
     form = PostForm()
     if form.validate_on_submit():
         post = Post(body=form.post.data, author=current_user)
@@ -30,7 +31,7 @@ def index():
                            prev_url=prev_url)
 
 
-@app.route('/explore')
+@app.route('/explore', methods = ['GET'])
 @login_required
 def explore():
     page = request.args.get('page', 1, type=int)
@@ -87,7 +88,7 @@ def register():
     return render_template('register.html', title='Register', form=form)
 
 
-@app.route('/user/<username>')
+@app.route('/user/<username>', methods = ['GET', 'POST'])
 @login_required
 def user(username):
     user = User.query.filter_by(username=username).first_or_404()
@@ -161,7 +162,51 @@ def unfollow(username):
         return redirect(url_for('index'))
 
 
-@app.route('/logout')
+@app.route('/request_password_reset', methods = ['GET', 'POST'])
+def request_password_reset():
+    '''
+    This link/function is invoked when a user wants to reset his/her password.
+    '''
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    # In the request_password_reset form, the user will be asked his Email
+    # and then upon submitting, he/she will receive a link that will help in
+    # password resetting.
+    # Let us check if the entered email is existing in the database :-
+    # For, that let us create an instance of 'User', and filter by the email entered by user.
+    # If such an instance with the entered email exists, then we know that the user exists.
+    form = ResetPasswordRequestForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email = form.email.data).first()
+        if user:
+            # With such a user existing, we'll send an email for password reset to user.
+            send_password_reset_email(user)
+        # We are flashing the message out of 'if' block so that the person doesn't know
+        # if such an account with that user is existing.
+        flash('Check your email for the instructions to reset password.')
+        # Then, the user(whether or not) is redirected to 'login' page.
+        return redirect(url_for('login'))
+    return render_template('request_password_request.html',
+                            form = form, title = 'Request Password Reset')
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    user = User.verify_reset_password_token(token)
+    if not user:
+        return redirect(url_for('index'))
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        flash('Your password has been reset.')
+        return redirect(url_for('login'))
+    return render_template('reset_password.html', form=form)
+
+
+@app.route('/logout', methods = ['GET','POST'])
 def logout():
     logout_user()
     return redirect(url_for('index'))
