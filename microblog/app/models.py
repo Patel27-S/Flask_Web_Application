@@ -1,8 +1,10 @@
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask_login import UserMixin
-from app import db, login
+from app import db, login, app
 from hashlib import md5
+from time import time
+import jwt
 
 
 
@@ -45,39 +47,99 @@ class User(UserMixin, db.Model):
         secondaryjoin=(followers.c.followed_id == id),
         backref=db.backref('followers', lazy='dynamic'), lazy='dynamic')
 
+
     # user.set_password() would set password_hash for the i/p password.
     def set_password(self, password):
+        '''
+        The password entered by the user will be convereted inton its hashed version
+        using this method, and then stored in the database.
+        '''
         self.password_hash = generate_password_hash(password)
+
 
     # When the user logs in, the entered password is checked with the
     # database password, and at that time, the below method is used.
     def check_password(self, password):
+        '''
+        The user entered password to login can be checked to find if it is true in the backend,
+        using this method.
+        '''
         return check_password_hash(self.password_hash, password)
 
     # Below, method returns a link which posts an image.
     def avatar(self, size):
+        '''
+        This function returns a 'link' that will display the gravatar image of the user.
+        And, a by default image if it is not present.
+        '''
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return 'https://www.gravatar.com/avatar/{}?d=identicon&s={}'.format(
             digest, size)
 
+
     def follow(self, user):
+        '''
+        When a user follows another user on the Web App, we can recreate
+        the same scenario in the database,by invoking this method with the user's
+        object and passing the user who is followed, as an argument.
+        '''
         if not self.is_following(user):
             self.followed.append(user)
 
+
     def unfollow(self, user):
+        '''
+        When a user unfollows another user on the Web App, we can recreate
+        the same scenario in the database,by invoking this method with the user's
+        object and passing the user who is unfollowed, as an argument.
+        '''
         if self.is_following(user):
             self.followed.remove(user)
 
+
     def is_following(self, user):
+        '''
+        Thi function checks if a user is already following a particular user.
+        '''
         return self.followed.filter(
             followers.c.followed_id == user.id).count() > 0
 
+
     def followed_posts(self):
+        '''
+        This method will return all the posts of the user itself and the users that
+        he/she follows, in descending order(i.e. most recent to late).
+        '''
         followed = Post.query.join(
           followers, (followers.c.followed_id == Post.user_id)).filter(
             followers.c.follower_id == self.id)
         own = Post.query.filter_by(user_id=self.id)
         return followed.union(own).order_by(Post.timestamp.desc())
+
+
+    def get_reset_password_token(self, expires_in=600):
+        '''
+        This method is used to generate a password token sent to the users.
+        '''
+        return jwt.encode(
+                {'reset_password' : self.id,'exp': time() + expires_in},
+                app.config['SECRET_KEY'], algorithm = 'HS256')
+
+
+    @staticmethod
+    def verify_password_token(token):
+        '''
+        This method is used for verifying if the token is valid. Hence, we need to
+        decode the token.
+        '''
+        try:
+            id = jwt.decode(token,
+                       app.config['SECRET_KEY'], algorithms = ['HS256'])['reset_password']
+        except:
+            # If the token is invalid, then 'None' will be returned.
+            return
+        # If the token is valid, then the 'user' object is returned.
+        return User.query.get(id)
 
 
     # Dunder method. Each 'User' object is represented by the __repr__() below.

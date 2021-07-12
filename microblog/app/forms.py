@@ -62,8 +62,30 @@ class EmptyForm(FlaskForm):
     '''
     submit = SubmitField('Submit')
 
+
+class ResetPasswordRequestForm(FlaskForm):
+    '''
+    Upon clicking for 'Click for Password Reset!', A form will show
+    with the below fields.
+    '''
+    email = StringField('Email', validators = [DataRequired()])
+    submit = SubmitField('Reset Password Request')
+
+
 class PostForm(FlaskForm):
+    '''
+    On the Index/Home Page, the PostForm will be shown, from where a user
+    can post, a post.
+    '''
     post = TextAreaField('Say Something', validators = [
     DataRequired(), Length(min = 1, max = 150)
     ])
+    submit = SubmitField('Submit')
+
+class ResetPasswordForm(FlaskForm):
+    '''
+    When a user clicks on the link emailed, the defined form will show.
+    '''
+    password = PasswordField('Password', validators = [DataRequired()])
+    confirm_password = PasswordField('Confirm Password', validators = [DataRequired(), EqualTo('password')])
     submit = SubmitField('Submit')
